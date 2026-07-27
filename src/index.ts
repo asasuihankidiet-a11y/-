@@ -44,8 +44,7 @@ client.on(Events.MessageCreate, async (message) => {
       message.author.id,
       history
     );
-    const trimmed = updatedHistory.slice(-MAX_HISTORY_MESSAGES);
-    histories.set(historyKey, trimmed);
+    histories.set(historyKey, trimHistory(updatedHistory, MAX_HISTORY_MESSAGES));
 
     for (const chunk of splitMessage(reply)) {
       await message.reply(chunk);
@@ -88,6 +87,28 @@ function scheduleDailyReminder(): void {
       console.error("Failed to send daily reminder:", err);
     }
   }, 60 * 1000);
+}
+
+function isDanglingContinuation(message: MessageParam): boolean {
+  // A user message made up entirely of tool_result blocks is a continuation of
+  // the previous assistant turn, not a fresh user turn — it can't stand alone.
+  if (message.role !== "user" || !Array.isArray(message.content)) return false;
+  return (
+    message.content.length > 0 &&
+    message.content.every(
+      (block) => typeof block === "object" && block !== null && block.type === "tool_result"
+    )
+  );
+}
+
+function trimHistory(history: MessageParam[], maxMessages: number): MessageParam[] {
+  let start = Math.max(0, history.length - maxMessages);
+  // Advance past any assistant message or dangling tool_result continuation so the
+  // trimmed history starts on a genuine user turn and never splits a tool_use/tool_result pair.
+  while (start < history.length && (history[start].role !== "user" || isDanglingContinuation(history[start]))) {
+    start++;
+  }
+  return history.slice(start);
 }
 
 function splitMessage(text: string, limit = 1900): string[] {
