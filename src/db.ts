@@ -18,3 +18,8 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
+
+const taskColumns = db.prepare("PRAGMA table_info(tasks)").all() as { name: string }[];
+if (!taskColumns.some((c) => c.name === "category")) {
+  db.exec("ALTER TABLE tasks ADD COLUMN category TEXT");
+}

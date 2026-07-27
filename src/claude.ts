@@ -15,6 +15,11 @@ const tools: Tool[] = [
       type: "object",
       properties: {
         title: { type: "string", description: "タスクの内容" },
+        category: {
+          type: "string",
+          description:
+            "タスクの分野・カテゴリ（任意、例: 自己理解講座, 子ども, 仕事）。会話の文脈から適切なものを推測して設定する",
+        },
         due_at: {
           type: "string",
           description: "期限のISO8601日時（任意、例: 2026-07-26T18:00:00+09:00）",
@@ -32,6 +37,10 @@ const tools: Tool[] = [
         include_done: {
           type: "boolean",
           description: "完了済みタスクも含めるか（デフォルトfalse）",
+        },
+        category: {
+          type: "string",
+          description: "指定したカテゴリのタスクだけに絞り込む（任意）",
         },
       },
     },
@@ -107,9 +116,9 @@ const tools: Tool[] = [
 async function runTool(userId: string, name: string, input: any): Promise<unknown> {
   switch (name) {
     case "add_task":
-      return addTask(userId, input.title, input.due_at);
+      return addTask(userId, input.title, input.category, input.due_at);
     case "list_tasks":
-      return listTasks(userId, Boolean(input.include_done));
+      return listTasks(userId, Boolean(input.include_done), input.category);
     case "complete_task":
       return completeTask(userId, input.task_id);
     case "delete_task":
@@ -145,6 +154,7 @@ function systemPrompt(): string {
     "日時をツールに渡す際は、ユーザーの発言から合理的に解釈し、ISO8601形式（タイムゾーン付き）で指定してください。",
     "メールは下書き作成のみ行い、絶対に自動送信しないでください。",
     "カレンダーやメールの操作を行う前に、影響が大きい場合（予定の追加など）は簡潔に確認しても構いませんが、単純な確認・一覧取得は即座に実行してください。",
+    "タスクを追加するときは、会話の内容から分野が読み取れる場合（自己理解講座の宿題、子どもの提出物、仕事関連など）、categoryにその分野名を設定してください。",
   ].join("\n");
 }
 

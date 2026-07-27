@@ -18,6 +18,7 @@ const client = new Client({
 
 client.once(Events.ClientReady, (c) => {
   console.log(`Logged in as ${c.user.tag}`);
+  scheduleDailyReminder();
 });
 
 client.on(Events.MessageCreate, async (message) => {
@@ -56,6 +57,38 @@ client.on(Events.MessageCreate, async (message) => {
     );
   }
 });
+
+function scheduleDailyReminder(): void {
+  const targetUserId = process.env.REMINDER_USER_ID;
+  if (!targetUserId) return;
+
+  const reminderHour = Number(process.env.REMINDER_HOUR ?? 8);
+  let lastSentDateKey = "";
+
+  setInterval(async () => {
+    const now = new Date();
+    const dateKey = now.toDateString();
+    if (now.getHours() !== reminderHour || now.getMinutes() !== 0) return;
+    if (lastSentDateKey === dateKey) return;
+    lastSentDateKey = dateKey;
+
+    try {
+      const user = await client.users.fetch(targetUserId);
+      const { reply } = await chat(targetUserId, [
+        {
+          role: "user",
+          content:
+            "おはようございます。今日確認すべきことをまとめてください。期限が過ぎている・今日から3日以内に期限が来るタスクを一覧し、必要ならカレンダーの今日の予定も確認してください。何もなければ、その旨を短く伝えてください。",
+        },
+      ]);
+      for (const chunk of splitMessage(reply)) {
+        await user.send(chunk);
+      }
+    } catch (err) {
+      console.error("Failed to send daily reminder:", err);
+    }
+  }, 60 * 1000);
+}
 
 function splitMessage(text: string, limit = 1900): string[] {
   if (text.length <= limit) return [text];
