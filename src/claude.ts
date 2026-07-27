@@ -1,6 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam, Tool } from "@anthropic-ai/sdk/resources/messages";
-import { addTask, completeTask, deleteTask, listTasks } from "./tools/google-tasks.js";
+import {
+  addTask,
+  completeTask,
+  deleteTask,
+  listTasks,
+  updateTask,
+} from "./tools/google-tasks.js";
 import { createEvent, listUpcomingEvents } from "./tools/calendar.js";
 import { createDraftEmail, listRecentEmails } from "./tools/gmail.js";
 
@@ -45,6 +51,30 @@ const tools: Tool[] = [
           description: "指定したカテゴリのタスクだけに絞り込む（任意）",
         },
       },
+    },
+  },
+  {
+    name: "update_task",
+    description:
+      "既存タスクのタイトル・カテゴリ・期限を変更する。カテゴリ分けをやり直す等、内容を編集したいときはこれを使う（削除して作り直す必要はない）",
+    input_schema: {
+      type: "object",
+      properties: {
+        task_id: { type: "string", description: "Google TasksのタスクID" },
+        title: {
+          type: "string",
+          description: "新しいタスク内容（変更する場合のみ指定）",
+        },
+        category: {
+          type: "string",
+          description: "新しいカテゴリ（変更する場合のみ指定）",
+        },
+        due_at: {
+          type: "string",
+          description: "新しい期限の日付（ISO8601、変更する場合のみ指定）",
+        },
+      },
+      required: ["task_id"],
     },
   },
   {
@@ -125,6 +155,12 @@ async function runTool(userId: string, name: string, input: any): Promise<unknow
       return addTask(input.title, input.category, input.due_at);
     case "list_tasks":
       return listTasks(Boolean(input.include_done), input.category);
+    case "update_task":
+      return updateTask(input.task_id, {
+        title: input.title,
+        category: input.category,
+        due: input.due_at,
+      });
     case "complete_task":
       return completeTask(input.task_id);
     case "delete_task":
@@ -162,6 +198,8 @@ function systemPrompt(): string {
     "メールは下書き作成のみ行い、絶対に自動送信しないでください。",
     "カレンダーやメールの操作を行う前に、影響が大きい場合（予定の追加など）は簡潔に確認しても構いませんが、単純な確認・一覧取得は即座に実行してください。",
     "タスクを追加するときは、会話の内容から分野が読み取れる場合（自己理解講座の宿題、子どもの提出物、仕事関連など）、categoryにその分野名を設定してください。",
+    "既存タスクのカテゴリ・タイトル・期限を変更したいときは、必ずupdate_taskを使ってください。delete_taskしてadd_taskで作り直す、という遠回りは絶対にしないでください。",
+    "複数件のタスクをまとめて更新する場合も、1件ずつupdate_taskを呼び出せば十分です。",
   ].join("\n");
 }
 
@@ -171,10 +209,10 @@ export async function chat(
 ): Promise<{ reply: string; history: MessageParam[] }> {
   const messages: MessageParam[] = [...history];
 
-  for (let turn = 0; turn < 6; turn++) {
+  for (let turn = 0; turn < 10; turn++) {
     const response = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 1024,
+      max_tokens: 4096,
       system: systemPrompt(),
       tools,
       messages,

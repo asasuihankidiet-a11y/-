@@ -95,6 +95,40 @@ export async function listTasks(
   return items;
 }
 
+export interface TaskUpdates {
+  title?: string;
+  category?: string | null;
+  due?: string | null;
+}
+
+export async function updateTask(
+  taskId: string,
+  updates: TaskUpdates
+): Promise<GoogleTask> {
+  const tasks = tasksClient();
+  const tasklist = await getTaskListId();
+  const { data: current } = await tasks.tasks.get({ tasklist, task: taskId });
+  const parsed = parseTitle(current.title ?? "");
+
+  const nextTitle = updates.title ?? parsed.title;
+  const nextCategory =
+    updates.category !== undefined ? updates.category : parsed.category;
+
+  const requestBody: tasks_v1.Schema$Task = {
+    title: formatTitle(nextTitle, nextCategory ?? undefined),
+  };
+  if (updates.due !== undefined) {
+    requestBody.due = updates.due ? new Date(updates.due).toISOString() : null;
+  }
+
+  const { data } = await tasks.tasks.patch({
+    tasklist,
+    task: taskId,
+    requestBody,
+  });
+  return toGoogleTask(data);
+}
+
 export async function completeTask(taskId: string): Promise<GoogleTask> {
   const tasks = tasksClient();
   const tasklist = await getTaskListId();
