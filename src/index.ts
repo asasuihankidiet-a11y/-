@@ -67,8 +67,10 @@ function scheduleDailyReminder(): void {
   setInterval(async () => {
     const now = new Date();
     const dateKey = now.toDateString();
-    if (now.getHours() !== reminderHour || now.getMinutes() !== 0) return;
+    // その日まだ送っていなくて、リマインド時刻を過ぎていれば送る（起動直後やスリープ復帰後も、
+    // ちょうどその分を逃さず追いつけるように「時刻ぴったり」ではなく「以降ならOK」で判定する）
     if (lastSentDateKey === dateKey) return;
+    if (now.getHours() < reminderHour) return;
     lastSentDateKey = dateKey;
 
     try {
