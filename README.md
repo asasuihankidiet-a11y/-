@@ -1,11 +1,12 @@
 # AI秘書 (Discord Bot)
 
-Discord上で動くAI秘書ボットです。Claude APIで会話・タスク管理を行い、Googleカレンダー・Gmailと連携します。
+Discord上で動くAI秘書ボットです。Claude APIで会話・タスク管理を行い、Googleカレンダー・Gmail・Google Tasksと連携します。
 
 ## 機能
 
 - 雑談・質問応答
-- タスク・ToDo管理（追加・一覧・完了・削除、カテゴリでの絞り込み）
+- タスク・ToDo管理（Google Tasksと連携。追加・一覧・完了・削除、カテゴリでの絞り込み）
+  - Google Tasksの「AI秘書」というリストに保存されるので、Googleカレンダーのアプリ/サイトからも一覧・チェックができます
 - Googleカレンダーの予定確認・追加
 - Gmail受信トレイの確認、下書き作成（安全のため自動送信はしません）
 - 毎日決まった時刻に、遅延・期限が近いタスクや今日の予定をDMで自動リマインド（任意）
@@ -29,13 +30,18 @@ npm install
 
 [Anthropic Console](https://console.anthropic.com/) でAPIキーを発行します。
 
-### 4. Google OAuth設定（Calendar / Gmail連携）
+### 4. Google OAuth設定（Calendar / Gmail / Tasks連携）
 
 1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成
-2. 「APIとサービス」で **Google Calendar API** と **Gmail API** を有効化
-3. 「認証情報」で「OAuthクライアントID」（種類: デスクトップアプリ）を作成し、クライアントIDとシークレットを取得
-4. `.env` に `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を設定
-5. 以下を実行してブラウザ認可フローを行い、`GOOGLE_REFRESH_TOKEN` を取得:
+2. 「APIとサービス」で **Google Calendar API**・**Gmail API**・**Google Tasks API** を有効化
+3. 「OAuth同意画面」の「データアクセス」で、以下のスコープを追加:
+   - `.../auth/calendar`
+   - `.../auth/gmail.modify`
+   - `.../auth/tasks`
+4. 「認証情報」で「OAuthクライアントID」を作成し、クライアントIDとシークレットを取得
+   - 「承認済みのリダイレクト URI」に `http://localhost:53682/oauth2callback` を追加しておく
+5. `.env` に `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を設定
+6. 以下を実行してブラウザ認可フローを行い、`GOOGLE_REFRESH_TOKEN` を取得:
 
 ```bash
 npm run google-auth
@@ -43,7 +49,9 @@ npm run google-auth
 
 表示されたURLをブラウザで開いて認可すると、ターミナルに `refresh_token` が出力されるので `.env` に設定してください。
 
-Google連携をしない場合は手順4・5を省略できます（カレンダー/メール機能のみ利用不可になります）。
+Google連携をしない場合は手順4以降を省略できます（カレンダー/メール/タスク機能のみ利用不可になります）。
+
+すでに一度認可済みで、スコープ（利用する機能）を追加した場合は、`npm run google-auth` を再実行して新しい `GOOGLE_REFRESH_TOKEN` を取得し直してください。
 
 ### 5. 環境変数の設定
 
@@ -87,4 +95,4 @@ npm start
 
 ## データ
 
-タスクはローカルのSQLiteファイル（`DB_PATH` で指定、デフォルト `./data.sqlite`）に保存されます。
+タスクはGoogle Tasksの「AI秘書」というリストに保存されます。ロボット専用のローカルファイルは使いません。

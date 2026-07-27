@@ -5,6 +5,7 @@ import { google } from "googleapis";
 const SCOPES = [
   "https://www.googleapis.com/auth/calendar",
   "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/tasks",
 ];
 
 async function main() {

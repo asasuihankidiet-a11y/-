@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam, Tool } from "@anthropic-ai/sdk/resources/messages";
-import { addTask, completeTask, deleteTask, listTasks } from "./tools/tasks.js";
+import { addTask, completeTask, deleteTask, listTasks } from "./tools/google-tasks.js";
 import { createEvent, listUpcomingEvents } from "./tools/calendar.js";
 import { createDraftEmail, listRecentEmails } from "./tools/gmail.js";
 
@@ -10,7 +10,8 @@ const MODEL = "claude-sonnet-5";
 const tools: Tool[] = [
   {
     name: "add_task",
-    description: "ユーザーのToDoリストに新しいタスクを追加する",
+    description:
+      "ユーザーのToDoリスト（Google Tasks、「AI秘書」というリスト）に新しいタスクを追加する",
     input_schema: {
       type: "object",
       properties: {
@@ -22,7 +23,8 @@ const tools: Tool[] = [
         },
         due_at: {
           type: "string",
-          description: "期限のISO8601日時（任意、例: 2026-07-26T18:00:00+09:00）",
+          description:
+            "期限の日付（任意、ISO8601形式、例: 2026-07-30）。Google Tasksでは日付のみが表示される",
         },
       },
       required: ["title"],
@@ -30,7 +32,7 @@ const tools: Tool[] = [
   },
   {
     name: "list_tasks",
-    description: "ユーザーのToDoリストを取得する",
+    description: "ユーザーのToDoリスト（Google Tasks）を取得する",
     input_schema: {
       type: "object",
       properties: {
@@ -50,7 +52,9 @@ const tools: Tool[] = [
     description: "指定したIDのタスクを完了にする",
     input_schema: {
       type: "object",
-      properties: { task_id: { type: "integer" } },
+      properties: {
+        task_id: { type: "string", description: "Google TasksのタスクID" },
+      },
       required: ["task_id"],
     },
   },
@@ -59,7 +63,9 @@ const tools: Tool[] = [
     description: "指定したIDのタスクを削除する",
     input_schema: {
       type: "object",
-      properties: { task_id: { type: "integer" } },
+      properties: {
+        task_id: { type: "string", description: "Google TasksのタスクID" },
+      },
       required: ["task_id"],
     },
   },
@@ -116,13 +122,14 @@ const tools: Tool[] = [
 async function runTool(userId: string, name: string, input: any): Promise<unknown> {
   switch (name) {
     case "add_task":
-      return addTask(userId, input.title, input.category, input.due_at);
+      return addTask(input.title, input.category, input.due_at);
     case "list_tasks":
-      return listTasks(userId, Boolean(input.include_done), input.category);
+      return listTasks(Boolean(input.include_done), input.category);
     case "complete_task":
-      return completeTask(userId, input.task_id);
+      return completeTask(input.task_id);
     case "delete_task":
-      return { deleted: deleteTask(userId, input.task_id) };
+      await deleteTask(input.task_id);
+      return { deleted: true };
     case "list_calendar_events":
       return listUpcomingEvents(input.max_results ?? 10);
     case "create_calendar_event":
