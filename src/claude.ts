@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam, Tool } from "@anthropic-ai/sdk/resources/messages";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import {
   addTask,
   completeTask,
@@ -12,6 +15,45 @@ import { createDraftEmail, listRecentEmails } from "./tools/gmail.js";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = "claude-sonnet-5";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const KNOWLEDGE_DIR = path.join(
+  __dirname,
+  "..",
+  ".claude",
+  "skills",
+  "insta-secretary",
+  "assets"
+);
+const KNOWLEDGE_FILES: [file: string, label: string][] = [
+  ["brand.md", "ブランドの世界観・ペルソナ"],
+  ["style.md", "文体ルール"],
+];
+
+function loadKnowledge(): string {
+  const sections = KNOWLEDGE_FILES.map(([file, label]) => {
+    try {
+      const content = readFileSync(path.join(KNOWLEDGE_DIR, file), "utf-8");
+      return `### ${label}（${file}）\n${content}`;
+    } catch {
+      return null;
+    }
+  }).filter((s): s is string => s !== null);
+
+  if (sections.length === 0) return "";
+
+  return [
+    "",
+    "---",
+    "以下は、あさちゃんがこれまでの壁打ちで積み上げてきた発信の知識（ブランドの方向性・文体のクセ）です。",
+    "「これってどうだっけ？」のような振り返りの質問には、ここを参照して答えてください。",
+    "投稿の実際の下書き作成は別のClaude Codeセッション（insta-secretaryスキル）が担当しているので、ここでは参照・受け答えを中心にしてください。",
+    "",
+    sections.join("\n\n"),
+  ].join("\n");
+}
+
+const KNOWLEDGE = loadKnowledge();
 
 const tools: Tool[] = [
   {
@@ -200,7 +242,7 @@ function systemPrompt(): string {
     "タスクを追加するときは、会話の内容から分野が読み取れる場合（自己理解講座の宿題、子どもの提出物、仕事関連など）、categoryにその分野名を設定してください。",
     "既存タスクのカテゴリ・タイトル・期限を変更したいときは、必ずupdate_taskを使ってください。delete_taskしてadd_taskで作り直す、という遠回りは絶対にしないでください。",
     "複数件のタスクをまとめて更新する場合も、1件ずつupdate_taskを呼び出せば十分です。",
-  ].join("\n");
+  ].join("\n") + KNOWLEDGE;
 }
 
 export async function chat(
